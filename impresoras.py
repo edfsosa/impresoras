@@ -6,7 +6,7 @@ from openpyxl import load_workbook
 from datetime import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from tkinter.ttk import Progressbar
+from tkinter.ttk import Progressbar, Treeview, Scrollbar
 import threading
 
 # Diccionario de modelos y su mapeo de índices
@@ -19,18 +19,6 @@ MODELOS_CONFIG = {
     "Lexmark MS812": [0, 2, 4],
     "Lexmark T654": [0, None, 2]  # None significa que no tiene unidad de imagen
 }
-
-# Obtener el modelo desde el topbar
-def obtener_topbar(ip):
-    try:
-        url = f"http://{ip}/cgi-bin/dynamic/topbar.html"
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        modelo = soup.find('span', class_='top_prodname')
-        return modelo.text.strip() if modelo else None  # Retorna None si no encuentra el modelo
-    except:
-        return None  # No modificar la celda si hay error
 
 # Obtener los porcentajes desde el estado de la impresora
 def obtener_status(ip, modelo):
@@ -53,8 +41,8 @@ def obtener_status(ip, modelo):
     except:
         return None, None, None  # No modificar la celda en caso de error
 
-# Función principal para actualizar el Excel
-def actualizar_excel(archivo_excel, resultado_label, barra_progreso):
+# Función principal para actualizar el Excel y mostrar resultados en la interfaz
+def actualizar_excel(archivo_excel, resultado_label, barra_progreso, tree):
     try:
         # Cargar el archivo Excel
         wb = load_workbook(archivo_excel)
@@ -65,6 +53,9 @@ def actualizar_excel(archivo_excel, resultado_label, barra_progreso):
         
         total_impresoras = len(filas)
         fecha_actual = datetime.today().strftime("%d/%m/%Y")
+
+        # Limpiar la tabla antes de mostrar nuevos resultados
+        tree.delete(*tree.get_children())
 
         # Recorrer todas las IPs y actualizar valores en el Excel
         for i, (fila, ip, modelo) in enumerate(filas, start=1):
@@ -91,6 +82,9 @@ def actualizar_excel(archivo_excel, resultado_label, barra_progreso):
             # Guardar la fecha de monitoreo
             ws[f"L{fila}"].value = fecha_actual
 
+            # Agregar los datos a la tabla en la interfaz
+            tree.insert("", "end", values=(ip, modelo, f"{toner*100:.2f}%" if toner else "-", f"{unidad_imagen*100:.2f}%" if unidad_imagen else "-", f"{kit_mantenimiento*100:.2f}%" if kit_mantenimiento else "-"))
+
         # Guardar los cambios en el Excel
         wb.save(archivo_excel)
 
@@ -101,8 +95,8 @@ def actualizar_excel(archivo_excel, resultado_label, barra_progreso):
         messagebox.showerror("Error", f"Ocurrió un error: {e}")
 
 # Función para iniciar el monitoreo en un hilo separado
-def iniciar_monitoreo(archivo_excel, resultado_label, barra_progreso):
-    hilo = threading.Thread(target=actualizar_excel, args=(archivo_excel, resultado_label, barra_progreso))
+def iniciar_monitoreo(archivo_excel, resultado_label, barra_progreso, tree):
+    hilo = threading.Thread(target=actualizar_excel, args=(archivo_excel, resultado_label, barra_progreso, tree))
     hilo.start()
 
 # Función para seleccionar un archivo
@@ -115,7 +109,7 @@ def seleccionar_archivo(entry_widget):
 def crear_interfaz():
     ventana = tk.Tk()
     ventana.title("Monitoreo de Impresoras")
-    ventana.geometry("600x300")
+    ventana.geometry("700x500")
 
     # Archivo de Excel
     tk.Label(ventana, text="Archivo de Excel:").grid(row=0, column=0, padx=10, pady=10)
@@ -124,17 +118,31 @@ def crear_interfaz():
     tk.Button(ventana, text="Seleccionar", command=lambda: seleccionar_archivo(entrada_excel)).grid(row=0, column=2, padx=10, pady=10)
 
     # Barra de progreso
-    barra_progreso = Progressbar(ventana, orient="horizontal", length=400, mode="determinate")
-    barra_progreso.grid(row=1, column=0, columnspan=3, pady=20)
+    barra_progreso = Progressbar(ventana, orient="horizontal", length=500, mode="determinate")
+    barra_progreso.grid(row=1, column=0, columnspan=3, pady=10)
+
+    # Tabla de resultados
+    tree = Treeview(ventana, columns=("IP", "Modelo", "Tóner (%)", "Unidad Imagen (%)", "Kit Mantenimiento (%)"), show="headings", height=10)
+    tree.grid(row=2, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
+
+    # Definir encabezados
+    for col in ("IP", "Modelo", "Tóner (%)", "Unidad Imagen (%)", "Kit Mantenimiento (%)"):
+        tree.heading(col, text=col)
+        tree.column(col, anchor="center", width=140)
+
+    # Agregar barra de desplazamiento
+    scrollbar = Scrollbar(ventana, orient="vertical", command=tree.yview)
+    scrollbar.grid(row=2, column=3, sticky="ns")
+    tree.configure(yscroll=scrollbar.set)
 
     # Botón para iniciar monitoreo
     resultado_label = tk.Label(ventana, text="", fg="green")
-    resultado_label.grid(row=3, column=0, columnspan=3, pady=10)
+    resultado_label.grid(row=4, column=0, columnspan=3, pady=10)
 
     tk.Button(
         ventana, text="Iniciar Monitoreo",
-        command=lambda: iniciar_monitoreo(entrada_excel.get(), resultado_label, barra_progreso)
-    ).grid(row=2, column=0, columnspan=3, pady=10)
+        command=lambda: iniciar_monitoreo(entrada_excel.get(), resultado_label, barra_progreso, tree)
+    ).grid(row=3, column=0, columnspan=3, pady=10)
 
     ventana.mainloop()
 
