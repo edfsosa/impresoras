@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.claude/
+build/
+dist/
+*.spec
+# Archivos generados en runtime (no commitear)
+config.json
+*.db
+*.log
