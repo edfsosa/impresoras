@@ -32,9 +32,9 @@
           └──────────┬──────────────┘
                      ▼
         ┌────────────────────────┐
-        │  Base de datos común   │
-        │  \\servidor\share\     │
-        │  impresoras.db         │
+│  Base de datos común   │
+│  \\MXL8372J8P\impresoras\  │
+│  impresoras.db         │
         └────────────────────────┘
 ```
 
@@ -47,7 +47,14 @@
 
 ### Base de datos compartida
 
-Todas las PCs apuntan a la misma base de datos en una carpeta de red. Esto permite que cualquier usuario vea los mismos datos (impresoras, monitoreos, stock, envíos). La ruta se configura en **Configuración → Base de datos** y se guarda en `config.json`.
+Todas las PCs apuntan a la misma base de datos en una carpeta de red. Esto permite que cualquier usuario vea los mismos datos (impresoras, monitoreos, stock, envíos).
+
+| Recurso | Ruta |
+|---------|------|
+| Base de datos | `\\MXL8372J8P\impresoras\impresoras.db` |
+| Ejecutable | `\\MXL8372J8P\impresoras\dist\MonitorImpresoras.exe` |
+
+La ruta de la BD se configura en **Configuración → Base de datos** y se guarda en `config.json`.
 
 ---
 
@@ -106,7 +113,17 @@ Listo. La próxima vez que abras la app ya tiene los cambios.
 
 ## Distribuir a usuarios finales (sin Python)
 
-### Compilar el .exe
+La estrategia recomendada es dejar el `.exe` en un recurso compartido de red para que todos los usuarios accedan a la misma versión desde cualquier PC.
+
+### Recursos compartidos
+
+| Recurso | Ruta |
+|---------|------|
+| Carpeta compartida (app) | `\\MXL8372J8P\impresoras` |
+| Base de datos compartida | `\\MXL8372J8P\impresoras\impresoras.db` |
+| Ejecutable | `\\MXL8372J8P\impresoras\dist\MonitorImpresoras.exe` |
+
+### Paso 1: Compilar el .exe
 
 Después de actualizar el código y probar que funciona:
 
@@ -118,14 +135,35 @@ pyinstaller MonitorImpresoras.spec
 
 Esto genera `C:\impresoras\dist\MonitorImpresoras.exe`.
 
-### Copiar a cada PC de usuario
+### Paso 2: Copiar a la carpeta compartida
 
-1. Crear una carpeta compartida o usar un USB
-2. Copiar todo `C:\impresoras\dist\` a la PC destino (ej: `C:\Program Files\MonitorImpresoras\`)
-3. Opcionalmente crear un acceso directo en el escritorio apuntando al `.exe`
-4. Configurar la ruta de base de datos compartida desde la ventana Configuración (si no se usó el mismo `config.json`)
+```powershell
+Copy-Item "C:\impresoras\dist\MonitorImpresoras.exe" "\\MXL8372J8P\impresoras\dist\" -Force
+```
 
-> **Nota:** Si la PC destino ya tiene una versión anterior, solo reemplazar el `.exe` (los datos están en la BD compartida, no en el .exe).
+### Paso 3: Que los usuarios creen un acceso directo
+
+En cada PC de usuario:
+
+1. Abrir `\\MXL8372J8P\impresoras\dist\`
+2. Clic derecho en `MonitorImpresoras.exe` → **Enviar a → Escritorio (acceso directo)**
+3. Abrir la aplicación desde el acceso directo
+4. Ir a **Configuración → Base de datos** y verificar que apunte a `\\MXL8372J8P\impresoras\impresoras.db`
+
+### Actualizar a nueva versión
+
+Cuando haya cambios:
+
+```powershell
+cd C:\impresoras
+git pull
+.venv\Scripts\activate
+pip install -r requirements.txt
+pyinstaller MonitorImpresoras.spec
+Copy-Item "C:\impresosas\dist\MonitorImpresoras.exe" "\\MXL8372J8P\impresoras\dist\" -Force
+```
+
+Los usuarios no necesitan hacer nada: la próxima vez que abran el acceso directo, Windows cargará la nueva versión desde la red automáticamente.
 
 ---
 
@@ -145,15 +183,24 @@ El flag `--windowed` evita que se abra una ventana de consola al ejecutar el `.e
 
 ## Estructura de carpetas en PC de usuario final
 
+En el recurso compartido de red:
+
 ```
-C:\MonitorImpresoras\          (o donde se haya copiado)
-├── MonitorImpresoras.exe      # Aplicación compilada
-├── config.json                # Configuración (se crea al abrir)
-├── impresoras.db              # Base de datos local (si no usa BD compartida)
-└── errores.log                # Registro de errores
+\\MXL8372J8P\impresoras\
+├── config.json                   # Configuración (db_path, email, umbrales)
+├── impresoras.db                 # Base de datos compartida
+├── errores.log                   # Registro de errores
+├── dist\
+│   └── MonitorImpresoras.exe     # Aplicación compilada
+└── (otros archivos de desarrollo)
+    ├── impresoras.py
+    ├── MonitorImpresoras.bat
+    └── ...
 ```
 
-Si usa base de datos compartida, `config.json` tendrá la ruta de red y `impresoras.db` local puede no existir o ser otra.
+La carpeta compartida contiene tanto el `.exe` como la base de datos. Los usuarios solo necesitan el acceso directo al `.exe` en `dist\`.
+
+Desde la PC de desarrollo, se accede a los mismos archivos para compilar y actualizar.
 
 ---
 
