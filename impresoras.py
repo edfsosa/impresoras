@@ -561,7 +561,8 @@ def db_cargar_ultimo_monitoreo(umbral_bajo, umbral_medio):
             SELECT COALESCE(i.sucursal, '') AS sucursal,
                    m.ip,
                    COALESCE(i.modelo, '')   AS modelo,
-                   m.toner, m.unidad_imagen, m.kit_mantenimiento
+                   m.toner, m.unidad_imagen, m.kit_mantenimiento,
+                   (SELECT MAX(fecha) FROM monitoreos WHERE ip = m.ip) AS ult_fecha
             FROM monitoreos m
             LEFT JOIN impresoras i ON m.ip = i.ip
             WHERE m.fecha = ?
@@ -570,6 +571,10 @@ def db_cargar_ultimo_monitoreo(umbral_bajo, umbral_medio):
 
     filas = []
     for r in rows:
+        try:
+            fecha_ult = datetime.strptime(r[6], "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y %H:%M")
+        except (ValueError, TypeError):
+            fecha_ult = str(r[6] or "")
         toner  = r[3]
         unidad = r[4]
         kit    = r[5]
