@@ -165,6 +165,21 @@ Copy-Item "C:\impresosas\dist\MonitorImpresoras.exe" "\\MXL8372J8P\impresoras\di
 
 Los usuarios no necesitan hacer nada: la próxima vez que abran el acceso directo, Windows cargará la nueva versión desde la red automáticamente.
 
+### Script de actualización automática
+
+Se incluye `actualizar.bat` en la raíz del proyecto. Al ejecutarlo, hace todo en un solo paso:
+
+```batch
+actualizar.bat
+# 1. git pull
+# 2. pip install -r requirements.txt
+# 3. pyinstaller MonitorImpresoras.spec
+# 4. Copy-Item a \\MXL8372J8P\impresoras\dist\
+```
+
+Usar este script para actualizar la app y distribuirla a los usuarios finales.
+
+
 ---
 
 ## Compilación con PyInstaller
@@ -201,6 +216,35 @@ En el recurso compartido de red:
 La carpeta compartida contiene tanto el `.exe` como la base de datos. Los usuarios solo necesitan el acceso directo al `.exe` en `dist\`.
 
 Desde la PC de desarrollo, se accede a los mismos archivos para compilar y actualizar.
+
+---
+
+## Backup de la base de datos
+
+La base de datos compartida (`\\MXL8372J8P\impresoras\impresoras.db`) contiene todos los datos del sistema. Se recomienda:
+
+### Backup manual
+
+```powershell
+# Copiar la BD a una carpeta de backups con fecha
+Copy-Item "\\MXL8372J8P\impresoras\impresoras.db" "D:\backups\impresoras_$(Get-Date -Format yyyyMMdd).db"
+```
+
+### Backup automático (programado)
+
+Crear una tarea en el **Programador de tareas de Windows**:
+
+1. Abrir **taskschd.msc**
+2. Crear tarea básica: "Backup Monitor Impresoras"
+3. Disparador: **Diario** a las 12:00
+4. Acción: **Iniciar un programa**
+   - Programa: `powershell.exe`
+   - Argumentos:
+     ```powershell
+     Copy-Item "\\MXL8372J8P\impresoras\impresoras.db" "D:\backups\impresoras_$(Get-Date -Format yyyyMMdd_HHmmss).db" -Force
+     ```
+
+> La BD usa WAL (Write-Ahead Logging), lo que permite copiarla mientras la aplicación está en uso sin riesgo de corrupción.
 
 ---
 

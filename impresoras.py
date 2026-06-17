@@ -43,6 +43,8 @@ COLOR_BAJO      = "#FF6B6B"
 COLOR_MEDIO     = "#FFD93D"
 COLOR_SIN_DATOS = "#CCCCCC"
 
+VERSION = "v1.0.0"
+
 BG_MAIN           = "#F5F5F5"
 COLOR_ACCENT      = "#2C7BB6"
 COLOR_ACCENT_DARK = "#1A5F8A"
@@ -3787,7 +3789,7 @@ def abrir_estadisticas_consumo():
 
 def crear_interfaz():
     ventana = tk.Tk()
-    ventana.title("Monitoreo de Impresoras")
+    ventana.title(f"Monitoreo de Impresoras {VERSION}")
     ventana.geometry("960x720")
     ventana.config(bg=BG_MAIN)
 
